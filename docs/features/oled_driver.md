@@ -216,6 +216,7 @@ These configuration options should be placed in `config.h`. Example:
 |`OLED_TIMEOUT`             |`60000`                        |Turns off the OLED screen after 60000ms of screen update inactivity. Helps reduce OLED Burn-in. Set to 0 to disable. |
 |`OLED_UPDATE_INTERVAL`     |`0` (`50` for split keyboards) |Set the time interval for updating the OLED display in ms. This will improve the matrix scan rate.                   |
 |`OLED_UPDATE_PROCESS_LIMIT`|`1`                            |Set the number of dirty blocks to render per loop. Increasing may degrade performance.                               |
+|`OLED_SH1106_CACHE_ENABLE` |*Not defined*                  |Skip unchanged page segments on SH1106 displays rotated 90 or 270 degrees. Uses an additional `OLED_MATRIX_SIZE` bytes of RAM plus a block validity mask. |
 
 ### I2C Configuration
 |Define                     |Default          |Description                                                                                                               |

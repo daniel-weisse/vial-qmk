@@ -148,6 +148,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 uint8_t         oled_buffer[OLED_MATRIX_SIZE];
 uint8_t *       oled_cursor;
 OLED_BLOCK_TYPE oled_dirty          = 0;
+#if defined(OLED_SH1106_CACHE_ENABLE) && OLED_IC == OLED_IC_SH1106
+static uint8_t oled_rendered[OLED_MATRIX_SIZE];
+static OLED_BLOCK_TYPE oled_rendered_valid = 0;
+#endif
 bool            oled_initialized    = false;
 bool            oled_active         = false;
 bool            oled_scrolling      = false;
@@ -364,6 +368,9 @@ bool oled_init(oled_rotation_t rotation) {
     oled_scroll_timeout = timer_read32() + OLED_SCROLL_TIMEOUT;
 #endif
 
+#if defined(OLED_SH1106_CACHE_ENABLE) && OLED_IC == OLED_IC_SH1106
+    oled_rendered_valid = 0;
+#endif
     oled_clear();
     oled_initialized = true;
     oled_active      = true;
@@ -448,6 +455,10 @@ static void rotate_90(const uint8_t *src, uint8_t *dest) {
     }
 }
 
+bool oled_is_dirty(void) {
+    return (oled_dirty & OLED_ALL_BLOCKS_MASK) != 0;
+}
+
 void oled_render_dirty(bool all) {
     // Do we have work to do?
     oled_dirty &= OLED_ALL_BLOCKS_MASK;
@@ -478,10 +489,15 @@ void oled_render_dirty(bool all) {
             calc_bounds_90(update_start, &display_start[1]); // Offset from I2C_CMD byte at the start
         }
 
-        // Send column & page position
-        if (!oled_send_cmd(display_start, ARRAY_SIZE(display_start))) {
-            print("oled_render offset command failed\n");
-            return;
+        // Rotated page-addressed displays set the position for each page below.
+#if !OLED_IC_HAS_HORIZONTAL_MODE
+        if (!HAS_FLAGS(oled_rotation, OLED_ROTATION_90))
+#endif
+        {
+            if (!oled_send_cmd(display_start, ARRAY_SIZE(display_start))) {
+                print("oled_render offset command failed\n");
+                return;
+            }
         }
 
         if (!HAS_FLAGS(oled_rotation, OLED_ROTATION_90)) {
@@ -512,20 +528,28 @@ void oled_render_dirty(bool all) {
             const uint8_t columns_in_block = (OLED_BLOCK_SIZE + OLED_DISPLAY_HEIGHT - 1) / OLED_DISPLAY_HEIGHT * 8;
             const uint8_t num_pages        = OLED_BLOCK_SIZE / columns_in_block;
             for (uint8_t i = 0; i < num_pages; ++i) {
-                // Send column & page position for all pages except the first one
-                if (i > 0) {
-                    display_start[1]++;
+#if defined(OLED_SH1106_CACHE_ENABLE) && OLED_IC == OLED_IC_SH1106
+                const uint16_t cache_offset = OLED_BLOCK_SIZE * update_start + columns_in_block * i;
+                if (!(oled_rendered_valid & ((OLED_BLOCK_TYPE)1 << update_start)) || memcmp(&oled_rendered[cache_offset], &temp_buffer[columns_in_block * i], columns_in_block) != 0)
+#endif
+                {
                     if (!oled_send_cmd(display_start, ARRAY_SIZE(display_start))) {
                         print("oled_render offset command failed\n");
                         return;
                     }
+                    if (!oled_send_data(&temp_buffer[columns_in_block * i], columns_in_block)) {
+                        print("oled_render90 data failed\n");
+                        return;
+                    }
+#if defined(OLED_SH1106_CACHE_ENABLE) && OLED_IC == OLED_IC_SH1106
+                    memcpy(&oled_rendered[cache_offset], &temp_buffer[columns_in_block * i], columns_in_block);
+#endif
                 }
-                // Send data for the page
-                if (!oled_send_data(&temp_buffer[columns_in_block * i], columns_in_block)) {
-                    print("oled_render90 data failed\n");
-                    return;
-                }
+                display_start[1]++;
             }
+#if defined(OLED_SH1106_CACHE_ENABLE) && OLED_IC == OLED_IC_SH1106
+            oled_rendered_valid |= (OLED_BLOCK_TYPE)1 << update_start;
+#endif
 #endif
         }
 

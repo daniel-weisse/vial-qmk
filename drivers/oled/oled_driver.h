@@ -360,6 +360,12 @@ void oled_clear(void);
 // all.
 void oled_render_dirty(bool all);
 
+// True while framebuffer changes are still waiting to be sent to the display.
+bool oled_is_dirty(void);
+
+// OLED_SH1106_CACHE_ENABLE keeps an extra framebuffer for rotated SH1106 displays
+// to avoid transmitting unchanged page segments within dirty blocks.
+
 // Moves cursor to character position indicated by column and line, wraps if out of bounds
 // Max column denoted by 'oled_max_chars()' and max lines by 'oled_max_lines()' functions
 void oled_set_cursor(uint8_t col, uint8_t line);

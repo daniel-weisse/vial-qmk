@@ -49,12 +49,24 @@
 
 // OLED display
 #define OLED_DISPLAY_128X64
-// If someone has only one OLED display
-// and that display was on the slave side. 
-// It wouldn't work at all. This fixes that 
-// including some code in rev1.c but makes 
-// it so the timeout's are not synced
-// between halves.
+// Manage each panel locally so a display connected only to the secondary half works.
+// Share input activity so both halves start their timeout animation together.
 #undef SPLIT_OLED_ENABLE
+#define SPLIT_ACTIVITY_ENABLE
 #define OLED_TIMEOUT 0
+// Poll often enough to advance as soon as the preceding frame has drained.
+#define OLED_UPDATE_INTERVAL 20
+// Saves I2C bandwidth at the cost of a 1 KB cache when using an SH1106.
+#define OLED_SH1106_CACHE_ENABLE
 
+#ifndef ELORA_OLED_TIMEOUT
+#    define ELORA_OLED_TIMEOUT 60000
+#endif
+// Target durations in milliseconds. Slow transfers stretch the animation to
+// preserve small wave steps and allow keyboard scans between OLED blocks.
+#ifndef ELORA_OLED_SLEEP_DURATION
+#    define ELORA_OLED_SLEEP_DURATION 1800
+#endif
+#ifndef ELORA_OLED_WAKE_DURATION
+#    define ELORA_OLED_WAKE_DURATION 1200
+#endif
