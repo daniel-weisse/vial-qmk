@@ -5,8 +5,6 @@
 #include "spi_master.h"
 #include "myriad.h"
 
-bool is_oled_enabled = true;
-
 //// HW init
 
 // Make sure all external hardware is
@@ -116,16 +114,9 @@ oled_rotation_t oled_init_kb(oled_rotation_t rotation) {
     }
 }
 
-bool oled_task_kb(void) {
+static void elora_oled_render_content(void) {
     if (!oled_task_user()) {
-        return false;
-    }
-
-    if (!is_oled_enabled) {
-        oled_off();
-        return false;
-    } else  {
-        oled_on();
+        return;
     }
 
     if (is_keyboard_master()) {
@@ -169,12 +160,112 @@ bool oled_task_kb(void) {
         oled_set_cursor(0, (oled_max_lines()/2)-4); // logo is 8 lines high, so center vertically
         oled_write_raw_P(elora_logo, sizeof(elora_logo));
     }
-
-    return false;
 }
 
-void housekeeping_task_kb(void) {
-    is_oled_enabled = last_input_activity_elapsed() < 60000;
+bool oled_task_kb(void) {
+    // Keep the unmasked content so incremental user renderers can also wake intact.
+    static uint8_t content[OLED_MATRIX_SIZE];
+    static uint8_t previous_frame[OLED_MATRIX_SIZE];
+    static bool awake               = true;
+    static uint16_t reveal          = 256;
+    static uint16_t transition_from = 256;
+    static uint32_t transition_started;
+    // Anchor the ordered dither to screen coordinates so the pattern does not flicker.
+    static const uint8_t dither[4][4] = {
+        {0, 8, 2, 10},
+        {12, 4, 14, 6},
+        {3, 11, 1, 9},
+        {15, 7, 13, 5},
+    };
+
+    const bool active              = last_input_activity_elapsed() < ELORA_OLED_TIMEOUT;
+    const uint16_t previous_reveal = reveal;
+    if (active != awake) {
+        awake              = active;
+        transition_from    = reveal;
+        transition_started = timer_read32();
+    }
+
+    if (reveal != (awake ? 256 : 0)) {
+        const uint32_t duration = awake ? ELORA_OLED_WAKE_DURATION : ELORA_OLED_SLEEP_DURATION;
+        const uint32_t elapsed  = timer_elapsed32(transition_started);
+        const uint16_t step     = elapsed >= duration ? 256 : elapsed * 256 / duration;
+        reveal = awake ? MIN(256, transition_from + step) : transition_from - MIN(transition_from, step);
+    }
+
+    // Do not redraw while asleep: dirty OLED buffers automatically power the panel on.
+    if (!awake && !reveal && !previous_reveal) {
+        oled_off();
+        return false;
+    }
+
+    uint8_t *buffer = oled_read_raw(0).current_element;
+    memcpy(previous_frame, buffer, sizeof(previous_frame));
+    memcpy(buffer, content, sizeof(content));
+    elora_oled_render_content();
+    memcpy(content, buffer, sizeof(content));
+    memcpy(buffer, previous_frame, sizeof(previous_frame));
+
+    // Both halves are rotated 90 degrees, so their logical width is the panel height.
+    // Doubled coordinates put the circle exactly between the four central pixels.
+    const uint16_t width          = OLED_DISPLAY_HEIGHT;
+    const uint16_t height         = OLED_DISPLAY_WIDTH;
+    const uint32_t corner_squared = (width - 1) * (width - 1) + (height - 1) * (height - 1);
+    const uint32_t radius_squared = corner_squared * reveal * reveal / (256UL * 256);
+
+    // Give the two-pixel bright wave a three-pixel dithered fade on each edge.
+    // Radii are doubled, matching the pixel coordinates below.
+    uint16_t radius = 0;
+    if (reveal < 256) {
+        while ((uint32_t)radius * radius < radius_squared) {
+            ++radius;
+        }
+    }
+    const uint16_t inner_radius       = radius > 4 ? radius - 4 : 0;
+    const uint16_t fade_inner_radius  = inner_radius > 6 ? inner_radius - 6 : 0;
+    const uint16_t fade_outer_radius  = radius + 6;
+    const uint32_t inner_squared      = (uint32_t)inner_radius * inner_radius;
+    const uint32_t fade_inner_squared = (uint32_t)fade_inner_radius * fade_inner_radius;
+    const uint32_t fade_outer_squared = (uint32_t)fade_outer_radius * fade_outer_radius;
+
+    for (uint16_t index = 0; index < OLED_MATRIX_SIZE; ++index) {
+        uint8_t pixels = content[index];
+        if (reveal < 256) {
+            const uint16_t x      = index % width;
+            const int16_t dx      = 2 * x - (width - 1);
+            const uint16_t page_y = (index / width) * 8;
+            for (uint8_t bit = 0; bit < 8; ++bit) {
+                const uint16_t y                = page_y + bit;
+                const int16_t dy                = 2 * y - (height - 1);
+                const uint32_t distance_squared = dx * dx + dy * dy;
+                if (distance_squared > radius_squared) {
+                    pixels &= ~(1 << bit);
+                }
+
+                uint8_t brightness = 0;
+                if (reveal && distance_squared >= inner_squared && distance_squared <= radius_squared) {
+                    brightness = 16;
+                } else if (reveal && distance_squared > fade_inner_squared && distance_squared < inner_squared) {
+                    brightness = 16 * (distance_squared - fade_inner_squared) / (inner_squared - fade_inner_squared);
+                } else if (reveal && distance_squared > radius_squared && distance_squared < fade_outer_squared) {
+                    brightness = 16 * (fade_outer_squared - distance_squared) / (fade_outer_squared - radius_squared);
+                }
+                if (brightness > dither[y % 4][x % 4]) {
+                    pixels |= 1 << bit;
+                }
+            }
+        }
+        oled_write_raw_byte(pixels, index);
+    }
+
+    if (!awake && !reveal) {
+        // Flush the last black pixels before powering down, avoiding stale pixels on wake.
+        oled_render_dirty(true);
+        oled_off();
+    } else {
+        oled_on();
+    }
+    return false;
 }
 #endif
 
