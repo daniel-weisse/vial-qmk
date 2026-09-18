@@ -13,6 +13,33 @@ enum layers {
     _ADJUST,
 };
 
+// Unicode umlaut and symbol support
+enum unicode_names {
+    UML_A_LOWER,
+    UML_A_UPPER,
+    UML_O_LOWER,
+    UML_O_UPPER,
+    UML_U_LOWER,
+    UML_U_UPPER,
+    UML_SS_LOWER,
+    UML_SS_UPPER,
+    DEGREE,
+    EURO,
+};
+
+const uint32_t PROGMEM unicode_map[] = {
+    [UML_A_LOWER]  = 0x00E4, // ä - Vial pair keycode: 0xC080
+    [UML_A_UPPER]  = 0x00C4, // Ä
+    [UML_O_LOWER]  = 0x00F6, // ö - Vial pair keycode: 0xC182
+    [UML_O_UPPER]  = 0x00D6, // Ö
+    [UML_U_LOWER]  = 0x00FC, // ü - Vial pair keycode: 0xC284
+    [UML_U_UPPER]  = 0x00DC, // Ü
+    [UML_SS_LOWER] = 0x00DF, // ß - Vial pair keycode: 0xC386
+    [UML_SS_UPPER] = 0x1E9E, // ẞ
+    [DEGREE]       = 0x00B0, // ° - Vial keycode: 0x8008
+    [EURO]         = 0x20AC, // € - Vial keycode: 0x8009
+};
+
 // Aliases for readability
 #define QWERTY   DF(_QWERTY)
 #define COLEMAK  DF(_COLEMAK_DH)

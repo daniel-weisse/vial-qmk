@@ -19,5 +19,12 @@
 
 #define VIAL_KEYBOARD_UID {0xB3, 0x8D, 0x94, 0xDA, 0xB3, 0xD7, 0xDC, 0x3D}
 
-#define VIAL_UNLOCK_COMBO_ROWS { 3, 9 }
-#define VIAL_UNLOCK_COMBO_COLS { 2, 5 }
+#define VIAL_UNLOCK_COMBO_ROWS {3, 9}
+#define VIAL_UNLOCK_COMBO_COLS {2, 5}
+
+// unicode Umlaut support
+#define UNICODE_SELECTED_MODES UNICODE_MODE_LINUX, UNICODE_MODE_WINCOMPOSE
+
+// OLED SH1106 support because I bought the wrong displays
+#define OLED_IC OLED_IC_SH1106
+#define OLED_COLUMN_OFFSET 2
