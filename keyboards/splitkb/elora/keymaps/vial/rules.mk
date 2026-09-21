@@ -10,3 +10,6 @@ ENCODER_MAP_ENABLE = yes
 
 # unicode Umlaut support
 UNICODEMAP_ENABLE = yes
+
+# Spring animation uses the keyboard's shared input activity timestamps.
+SRC += wave.c
