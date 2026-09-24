@@ -11,5 +11,14 @@ ENCODER_MAP_ENABLE = yes
 # unicode Umlaut support
 UNICODEMAP_ENABLE = yes
 
-# Spring animation uses the keyboard's shared input activity timestamps.
-SRC += wave.c
+# Select the secondary OLED animation at build time.
+SECONDARY_SCREEN_ANIMATION ?= matrix
+
+ifeq ($(SECONDARY_SCREEN_ANIMATION),matrix)
+    SRC += secondary_screen_matrix.c
+    OPT_DEFS += -DSECONDARY_SCREEN_MATRIX
+else ifeq ($(SECONDARY_SCREEN_ANIMATION),wave)
+    SRC += secondary_screen_wave.c
+else ifneq ($(SECONDARY_SCREEN_ANIMATION),none)
+    $(error Unsupported SECONDARY_SCREEN_ANIMATION '$(SECONDARY_SCREEN_ANIMATION)'. Use matrix, wave or none)
+endif

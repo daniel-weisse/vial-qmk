@@ -20,11 +20,11 @@ qmk config user.overlay_dir=None
 Build the firmware:
 
 ```bash
-qmk clean
-qmk compile -kb splitkb/elora/rev1 -km vial
+qmk compile -c -kb splitkb/elora/rev1 -km vial
 ```
 
-The keyboard can be flashed by copying the resulting `splitkb_elora_rev1_default.uf2` file onto the `RPI-RP2` flash drive.
+Select the animation for the secondary screen explicitly using `-e SECONDARY_SCREEN_ANIMATION=<animation>`.
+Supported values are `matrix` (default), `wave`, and `none`.
 
 See the [build environment setup](https://docs.qmk.fm/#/getting_started_build_tools) and the [make instructions](https://docs.qmk.fm/#/getting_started_make_guide) for more information. Brand new to QMK? Start with our [Complete Newbs Guide](https://docs.qmk.fm/#/newbs).
 

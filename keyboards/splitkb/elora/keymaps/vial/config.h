@@ -28,3 +28,8 @@
 // OLED SH1106 support because I bought the wrong displays
 #define OLED_IC OLED_IC_SH1106
 #define OLED_COLUMN_OFFSET 2
+
+#if defined(SECONDARY_SCREEN_MATRIX) && defined(OLED_ENABLE)
+// Send a cumulative key-down count to the secondary OLED.
+#    define SPLIT_TRANSACTION_IDS_USER MATRIX_SCREEN_SYNC
+#endif
